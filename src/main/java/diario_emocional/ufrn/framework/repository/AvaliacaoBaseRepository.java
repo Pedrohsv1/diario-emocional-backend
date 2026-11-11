@@ -16,4 +16,6 @@ public interface AvaliacaoBaseRepository<T extends Avaliacao> extends JpaReposit
     Optional<T> findByUsuarioAndDataRegistro(Usuario usuario, LocalDate dataRegistro);
 
     List<T> findAllByUsuario_IdAndDataRegistroBetween(Long usuarioId, LocalDate dataInicial, LocalDate dataFinal);
+
+    List<T> findTop3ByUsuarioOrderByDataRegistroDesc(Usuario usuario);
 }

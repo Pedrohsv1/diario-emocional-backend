@@ -416,7 +416,7 @@ public class IAService {
        return objectMapper.readValue(response.body(), GeminiResponseDTO.class);
     }
 
-    public IAResponseDTO gerarRespostaNoChatSocratico(String mensagem, List<Mensagem> listaDeMensagens) {
+    public IAResponseDTO gerarRespostaNoChatSocratico(String mensagem, List<Mensagem> listaDeMensagens, List<? extends Avaliacao> ultimasAvaliacoes) {
         System.out.println(objectMapper.writeValueAsString(listaDeMensagens));
 
         String system = """
@@ -442,10 +442,17 @@ public class IAService {
             - Valide o sentimento do jovem antes de questionar a lógica do pensamento.
             - Se o jovem pedir para você resolver o problema dele, devolva com uma pergunta reflexiva sobre o que ele espera alcançar.
             - Inicie a sessão apresentando-se de forma amigável e perguntando sobre o que ele gostaria de conversar hoje.
+            - Considere os últimos 3 registros de avaliação emocional do usuário (quando disponíveis) como contexto adicional sobre como ele tem se sentido recentemente para enriquecer as perguntas socráticas de forma sutil e natural, sem expor os dados de maneira robótica.
             
             **Mensagens ateriores**
             %s
-        \s""".formatted(objectMapper.writeValueAsString(listaDeMensagens));
+
+            **Últimos 3 registros de Avaliação**
+            %s
+        \s""".formatted(
+                objectMapper.writeValueAsString(listaDeMensagens),
+                objectMapper.writeValueAsString(ultimasAvaliacoes)
+        );
 
         String jsonOutput = this.chatClient.prompt()
                 .options(GoogleGenAiChatOptions.builder().responseMimeType("application/json"))
@@ -457,7 +464,7 @@ public class IAService {
         return objectMapper.readValue(jsonOutput, IAResponseDTO.class);
     }
 
-    public IAResponseCriarDTO gerarPrimeiraRespostaNoChatSocratico(String mensagem) {
+    public IAResponseCriarDTO gerarPrimeiraRespostaNoChatSocratico(String mensagem, List<? extends Avaliacao> ultimasAvaliacoes) {
 
         String system = """
             Você é um psicólogo clínico especializado no atendimento a adolescentes e jovens adultos. Sua abordagem é fundamentada na Terapia Cognitivo-Comportamental (TCC) e você utiliza estritamente o método de **Questionamento Socrático** para conduzir a conversa.
@@ -481,7 +488,11 @@ public class IAService {
             - Valide o sentimento do jovem antes de questionar a lógica do pensamento.
             - Se o jovem pedir para você resolver o problema dele, devolva com uma pergunta reflexiva sobre o que ele espera alcançar.
             - Inicie a sessão apresentando-se de forma amigável e perguntando sobre o que ele gostaria de conversar hoje.
-        \s""";
+            - Considere os últimos 3 registros de avaliação emocional do usuário (quando disponíveis) como contexto adicional sobre como ele tem se sentido recentemente para enriquecer as perguntas socráticas de forma sutil e natural, sem expor os dados de maneira robótica.
+
+            **Últimos 3 registros de Avaliação**
+            %s
+        \s""".formatted(objectMapper.writeValueAsString(ultimasAvaliacoes));
 
         String jsonOutput = this.chatClient.prompt()
                 .options(GoogleGenAiChatOptions.builder().responseMimeType("application/json"))
