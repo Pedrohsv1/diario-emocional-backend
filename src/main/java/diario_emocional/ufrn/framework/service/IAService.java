@@ -5,7 +5,7 @@ import diario_emocional.ufrn.framework.dto.IA.GeminiResponseDTO;
 import diario_emocional.ufrn.framework.dto.IA.IAResponseDTO;
 import diario_emocional.ufrn.framework.entity.*;
 import diario_emocional.ufrn.framework.repository.AtividadeObrigatoriaRepository;
-import diario_emocional.ufrn.framework.repository.AvalicaoSentimentoRepository;
+import diario_emocional.ufrn.framework.repository.AvaliacaoRepository;
 import diario_emocional.ufrn.framework.repository.RelatoDiaRepository;
 import diario_emocional.ufrn.framework.repository.RelatoHigieneSonoRepository;
 import org.springframework.ai.chat.client.ChatClient;
@@ -32,20 +32,20 @@ public class IAService {
     private final RelatoDiaRepository relatoDiaRepository;
     private final RelatoHigieneSonoRepository relatoHigieneSonoRepository;
     private final AtividadeObrigatoriaRepository atividadeObrigatoriaRepository;
-    private final AvalicaoSentimentoRepository avalicaoSentimentoRepository;
+    private final AvaliacaoRepository avaliacaoRepository;
     private final ObjectMapper objectMapper;
 
     @Value("${gemini.api-key}")
     private String apiKey;
     private final ChatClient chatClient;
 
-    public IAService(RelatoDiaRepository relatoDiaRepository,  RelatoHigieneSonoRepository relatoHigieneSonoRepository, AtividadeObrigatoriaRepository atividadeObrigatoriaRepository, AvalicaoSentimentoRepository avalicaoSentimentoRepository, ObjectMapper objectMapper, ChatModel chatModel, ChatClient.Builder chatClientBuilder){
+    public IAService(RelatoDiaRepository relatoDiaRepository,  RelatoHigieneSonoRepository relatoHigieneSonoRepository, AtividadeObrigatoriaRepository atividadeObrigatoriaRepository, AvaliacaoRepository avaliacaoRepository, ObjectMapper objectMapper, ChatModel chatModel, ChatClient.Builder chatClientBuilder){
         this.chatClient = chatClientBuilder.build();
         this.httpClient = HttpClient.newHttpClient();
         this.relatoDiaRepository = relatoDiaRepository;
         this.relatoHigieneSonoRepository = relatoHigieneSonoRepository;
         this.atividadeObrigatoriaRepository = atividadeObrigatoriaRepository;
-        this.avalicaoSentimentoRepository = avalicaoSentimentoRepository;
+        this.avaliacaoRepository = avaliacaoRepository;
         this.objectMapper = objectMapper;
     }
 
@@ -182,7 +182,7 @@ public class IAService {
     }
 
 
-    public String gerarPromptSugestaoSaudeMental(List<RelatoDia> relatos7dias, List<RelatoHigieneSono> higieneSono7dias, List<AtividadeObrigatoria> atividade7dias, List<AvaliacaoSentimento> avaliacao7dias){
+    public String gerarPromptSugestaoSaudeMental(List<RelatoDia> relatos7dias, List<RelatoHigieneSono> higieneSono7dias, List<AtividadeObrigatoria> atividade7dias, List<? extends Avaliacao> avaliacao7dias){
 
         String textoContexto = """
         Você é um assistente de reflexão pessoal e bem-estar
