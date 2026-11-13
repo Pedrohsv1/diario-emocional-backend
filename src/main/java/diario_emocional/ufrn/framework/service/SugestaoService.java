@@ -5,6 +5,8 @@ import diario_emocional.ufrn.framework.dto.RespostasSugestaoDTO;
 import diario_emocional.ufrn.framework.dto.SugestaoDTO;
 import diario_emocional.ufrn.framework.entity.*;
 import diario_emocional.ufrn.framework.exception.ResourceNotFoundException;
+import diario_emocional.ufrn.framework.prompts.PromptTemplate;
+import diario_emocional.ufrn.framework.prompts.SugestaoSaudeMentalPromptTemplate;
 import diario_emocional.ufrn.framework.repository.*;
 import org.springframework.stereotype.Service;
 import tools.jackson.databind.ObjectMapper;
@@ -18,7 +20,7 @@ import java.util.List;
 public class SugestaoService {
 
     private final IAService iaService;
-    private final ObjectMapper objectMapper=new ObjectMapper();
+    private final ObjectMapper objectMapper;
     private final SolicitacaoRepository solicitacaoRepository;
     private final RelatoDiaRepository relatoDiaRepository;
     private final RelatoHigieneSonoRepository relatoHigieneSonoRepository;
@@ -26,8 +28,9 @@ public class SugestaoService {
     private final AvaliacaoRepository avaliacaoRepository;
     private final UsuarioRepository usuarioRepository;
 
-    SugestaoService(IAService iaService, SolicitacaoRepository solicitacaoRepository, RelatoDiaRepository relatoDiaRepository,RelatoHigieneSonoRepository relatoHigieneSonoRepository,AtividadeObrigatoriaRepository atividadeObrigatoriaRepository, AvaliacaoRepository avaliacaoRepository, UsuarioRepository usuarioRepository){
+    SugestaoService(IAService iaService, ObjectMapper objectMapper, SolicitacaoRepository solicitacaoRepository, RelatoDiaRepository relatoDiaRepository,RelatoHigieneSonoRepository relatoHigieneSonoRepository,AtividadeObrigatoriaRepository atividadeObrigatoriaRepository, AvaliacaoRepository avaliacaoRepository, UsuarioRepository usuarioRepository){
         this.iaService = iaService;
+        this.objectMapper = objectMapper;
         this.solicitacaoRepository = solicitacaoRepository;
         this.relatoDiaRepository = relatoDiaRepository;
         this.relatoHigieneSonoRepository = relatoHigieneSonoRepository;
@@ -69,7 +72,10 @@ public class SugestaoService {
             throw new ResourceNotFoundException(String.join(" ", erros));
         }
 
-        return this.iaService.gerarPromptSugestaoSaudeMental(relatos7dias, higieneSono7dias, atividade7dias, avaliacao7dias);
+        PromptTemplate template = new SugestaoSaudeMentalPromptTemplate(
+                relatos7dias, higieneSono7dias, atividade7dias, avaliacao7dias, objectMapper
+        );
+        return template.montarPrompt();
     }
 
     public Solicitacao criarSolicitacao(Long usuarioId, LocalDate data) throws IOException, InterruptedException {
