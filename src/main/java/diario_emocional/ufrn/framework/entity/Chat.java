@@ -20,6 +20,10 @@ public class Chat {
     @Column(name = "modelo")
     private String modelo = "gemini-3.5-flash-lite";
 
+    @Column(name = "concluiu")
+    private Boolean concluiu = false;
+
+    @OrderBy("criadoEm ASC")
     @OneToMany(mappedBy = "chat", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private List<Mensagem> mensagems = new ArrayList<>();
 
@@ -68,6 +72,14 @@ public class Chat {
 
     public void setModelo(String modelo) {
         this.modelo = modelo;
+    }
+
+    public Boolean getConcluiu() {
+        return concluiu;
+    }
+
+    public void setConcluiu(Boolean concluiu) {
+        this.concluiu = concluiu;
     }
 
     public List<Mensagem> getMensagems() {

@@ -6,10 +6,14 @@ import java.util.stream.Stream;
 public abstract class PromptTemplate {
 
     public final String montarPrompt() {
-        return Stream.of(promptGeral(), dadosFixos(), dadosFlexiveis(), retornoJson())
+        return Stream.of(prefixoPrompt(), promptGeral(), dadosFixos(), dadosFlexiveis(), retornoJson())
                 .filter(parte -> parte != null && !parte.isBlank())
                 .map(String::strip)
                 .collect(Collectors.joining(System.lineSeparator() + System.lineSeparator()));
+    }
+
+    protected String prefixoPrompt() {
+        return "";
     }
 
     protected abstract String promptGeral();
