@@ -10,7 +10,7 @@ public class CorsConfig implements WebMvcConfigurer {
     public void addCorsMappings(CorsRegistry registry) {
         registry
                 .addMapping("/**")
-                .allowedOrigins("http://localhost:5173", "https://diario-emocional-frontend-six.vercel.app")
+                .allowedOrigins("http://localhost:5173", "https://diario-emocional-frontend-six.vercel.app", "https://diario-emocional-frontend-framework-eosin.vercel.app")
                 .allowedMethods("GET", "POST", "PUT", "DELETE")
                 .allowedHeaders("*");
     }
