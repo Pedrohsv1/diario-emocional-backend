@@ -7,6 +7,8 @@ public record ChatResponseDTO(
         UUID id,
         String titulo,
         String modelo,
-        List<MensagemResponseDTO> mensagens
+        List<MensagemResponseDTO> mensagens,
+        String pergunta,
+        Boolean concluiu
 ) {
 }

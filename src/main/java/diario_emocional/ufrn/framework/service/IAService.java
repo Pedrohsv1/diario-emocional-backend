@@ -4,6 +4,7 @@ import diario_emocional.ufrn.framework.dto.IA.IAResponseCriarDTO;
 import diario_emocional.ufrn.framework.dto.IA.GeminiResponseDTO;
 import diario_emocional.ufrn.framework.dto.IA.IAResponseDTO;
 import diario_emocional.ufrn.framework.entity.*;
+import diario_emocional.ufrn.framework.prompts.ChatSocraticPromptTemplate;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.google.genai.GoogleGenAiChatOptions;
@@ -17,6 +18,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.net.http.HttpTimeoutException;
+import java.util.Comparator;
 import java.util.List;
 
 
@@ -246,92 +248,88 @@ public class IAService {
        return objectMapper.readValue(response.body(), GeminiResponseDTO.class);
     }
 
-    public IAResponseDTO gerarRespostaNoChatSocratico(String mensagem, List<Mensagem> listaDeMensagens, List<? extends Avaliacao> ultimasAvaliacoes) {
-        System.out.println(objectMapper.writeValueAsString(listaDeMensagens));
-
-        String system = """
-            Você é um psicólogo clínico especializado no atendimento a adolescentes e jovens adultos. Sua abordagem é fundamentada na Terapia Cognitivo-Comportamental (TCC) e você utiliza estritamente o método de **Questionamento Socrático** para conduzir a conversa.
-           \s
-            **Diretrizes de Tom e Linguagem:**
-            - Mantenha um tom acolhedor, leve e empático.\s
-            - Use uma linguagem acessível e contemporânea, conectada à realidade jovem, mas mantendo a postura profissional (evite o uso excessivo ou forçado de gírias).
-            - Demonstre genuína curiosidade e escuta ativa.
-            - Mude a forma de falar a cada mensagem e  não seja repetitivo e mantenha o padão de perguntas focadas em encontrar o problema 
-            - Leias as mensagems anteriores para não ser repetitivo e encontrar perguntas que ajudem a identificar o problema
-           \s
-            **Estrutura de Investigação Socrática:**
-            Nunca dê respostas, diagnósticos imediatos, conselhos diretos ou soluções prontas. Guie a conversa através dos seguintes pilares:
-            1. **Clarificação e Definição:** Ajude o jovem a conceituar o problema específico de forma concreta (ex: "O que exatamente aconteceu quando você sentiu isso?").
-            2. **Exame de Evidências:** Questione a veracidade dos pensamentos automáticos (ex: "Que fatos mostram que isso é verdade? Há alguma evidência em contrário?").
-            3. **Exploração de Alternativas:** Incentive a descentração do pensamento (ex: "Se um amigo estivesse passando por isso, o que você diria a ele?").
-            4. **Descatastrofização:** Avalie o real impacto e o manejo do pior cenário (ex: "Se o que você teme acontecer, o que você poderia fazer para lidar com a situação?").
-            5. **Reestruturação Cognitiva:** Conduza o jovem a integrar um pensamento alternativo mais funcional e adaptativo.
-           \s
-            **Regras de Interação:**
-            - Faça apenas UMA (no máximo duas) perguntas por mensagem para manter a conversa fluida e não exaustiva.
-            - Valide o sentimento do jovem antes de questionar a lógica do pensamento.
-            - Se o jovem pedir para você resolver o problema dele, devolva com uma pergunta reflexiva sobre o que ele espera alcançar.
-            - Inicie a sessão apresentando-se de forma amigável e perguntando sobre o que ele gostaria de conversar hoje.
-            - Considere os últimos 3 registros de avaliação emocional do usuário (quando disponíveis) como contexto adicional sobre como ele tem se sentido recentemente para enriquecer as perguntas socráticas de forma sutil e natural, sem expor os dados de maneira robótica.
-            
-            **Mensagens ateriores**
-            %s
-
-            **Últimos 3 registros de Avaliação**
-            %s
-        \s""".formatted(
-                objectMapper.writeValueAsString(listaDeMensagens),
-                objectMapper.writeValueAsString(ultimasAvaliacoes)
+    public IAResponseDTO gerarRespostaNoChatSocratico(
+            String tema,
+            String mensagem,
+            List<Mensagem> listaDeMensagens,
+            List<? extends Avaliacao> ultimasAvaliacoes
+    ) {
+        List<Mensagem> historicoCronologico = listaDeMensagens.stream()
+                .sorted(Comparator.comparing(Mensagem::getCriadoEm))
+                .toList();
+        ChatSocraticPromptTemplate template = criarTemplateSocratico(
+                tema,
+                objectMapper.writeValueAsString(historicoCronologico),
+                objectMapper.writeValueAsString(ultimasAvaliacoes),
+                false
         );
 
         String jsonOutput = this.chatClient.prompt()
                 .options(GoogleGenAiChatOptions.builder().responseMimeType("application/json"))
-                .system(system + "Responda em JSON: {\"mensagem\": \"sua resposta aqui\"}")
+                .system(template.montarPrompt())
                 .user(mensagem)
                 .call()
                 .content();
 
-        return objectMapper.readValue(jsonOutput, IAResponseDTO.class);
+        IAResponseDTO resposta = objectMapper.readValue(jsonOutput, IAResponseDTO.class);
+        if (resposta == null) {
+            throw new IllegalStateException("A IA não retornou uma resposta válida para o chat.");
+        }
+        validarResposta(resposta.pergunta(), resposta.concluiu());
+        return resposta;
     }
 
-    public IAResponseCriarDTO gerarPrimeiraRespostaNoChatSocratico(String mensagem, List<? extends Avaliacao> ultimasAvaliacoes) {
-
-        String system = """
-            Você é um psicólogo clínico especializado no atendimento a adolescentes e jovens adultos. Sua abordagem é fundamentada na Terapia Cognitivo-Comportamental (TCC) e você utiliza estritamente o método de **Questionamento Socrático** para conduzir a conversa.
-           \s
-            **Diretrizes de Tom e Linguagem:**
-            - Mantenha um tom acolhedor, leve e empático.\s
-            - Use uma linguagem acessível e contemporânea, conectada à realidade jovem, mas mantendo a postura profissional (evite o uso excessivo ou forçado de gírias).
-            - Demonstre genuína curiosidade e escuta ativa.
-            - Mude a forma de falar a cada mensagem e  não seja repetitivo
-           \s
-            **Estrutura de Investigação Socrática:**
-            Nunca dê respostas, diagnósticos imediatos, conselhos diretos ou soluções prontas. Guie a conversa através dos seguintes pilares:
-            1. **Clarificação e Definição:** Ajude o jovem a conceituar o problema específico de forma concreta (ex: "O que exatamente aconteceu quando você sentiu isso?").
-            2. **Exame de Evidências:** Questione a veracidade dos pensamentos automáticos (ex: "Que fatos mostram que isso é verdade? Há alguma evidência em contrário?").
-            3. **Exploração de Alternativas:** Incentive a descentração do pensamento (ex: "Se um amigo estivesse passando por isso, o que você diria a ele?").
-            4. **Descatastrofização:** Avalie o real impacto e o manejo do pior cenário (ex: "Se o que você teme acontecer, o que você poderia fazer para lidar com a situação?").
-            5. **Reestruturação Cognitiva:** Conduza o jovem a integrar um pensamento alternativo mais funcional e adaptativo.
-           \s
-            **Regras de Interação:**
-            - Faça apenas UMA (no máximo duas) perguntas por mensagem para manter a conversa fluida e não exaustiva.
-            - Valide o sentimento do jovem antes de questionar a lógica do pensamento.
-            - Se o jovem pedir para você resolver o problema dele, devolva com uma pergunta reflexiva sobre o que ele espera alcançar.
-            - Inicie a sessão apresentando-se de forma amigável e perguntando sobre o que ele gostaria de conversar hoje.
-            - Considere os últimos 3 registros de avaliação emocional do usuário (quando disponíveis) como contexto adicional sobre como ele tem se sentido recentemente para enriquecer as perguntas socráticas de forma sutil e natural, sem expor os dados de maneira robótica.
-
-            **Últimos 3 registros de Avaliação**
-            %s
-        \s""".formatted(objectMapper.writeValueAsString(ultimasAvaliacoes));
+    public IAResponseCriarDTO gerarPrimeiraRespostaNoChatSocratico(
+            String mensagem,
+            List<? extends Avaliacao> ultimasAvaliacoes
+    ) {
+        ChatSocraticPromptTemplate template = criarTemplateSocratico(
+                mensagem,
+                "[]",
+                objectMapper.writeValueAsString(ultimasAvaliacoes),
+                true
+        );
 
         String jsonOutput = this.chatClient.prompt()
                 .options(GoogleGenAiChatOptions.builder().responseMimeType("application/json"))
-                .system( system + "Essa é a primeiro resposta - Responda em JSON: {\"mensagem\": \"sua resposta aqui\", \"titulo\": \"titulo da conversa\"}")
+                .system(template.montarPrompt())
                 .user(mensagem)
                 .call()
                 .content();
 
+        IAResponseCriarDTO resposta = objectMapper.readValue(jsonOutput, IAResponseCriarDTO.class);
+        if (resposta == null) {
+            throw new IllegalStateException("A IA não retornou uma resposta válida para o chat.");
+        }
+        validarResposta(resposta.pergunta(), resposta.concluiu());
+        if (resposta.titulo() == null || resposta.titulo().isBlank()) {
+            throw new IllegalStateException("A IA não retornou um título válido para o chat.");
+        }
+        return resposta;
+    }
 
-        return objectMapper.readValue(jsonOutput, IAResponseCriarDTO.class);
+    private ChatSocraticPromptTemplate criarTemplateSocratico(
+            String tema,
+            String historico,
+            String contextoAdicional,
+            boolean solicitarTitulo
+    ) {
+        return new ChatSocraticPromptTemplate(
+                tema,
+                historico,
+                contextoAdicional,
+                "Marque como concluída somente quando a pessoa indicar que alcançou o resultado "
+                        + "que buscava ou que não deseja continuar.",
+                solicitarTitulo
+        );
+    }
+
+    private void validarResposta(String pergunta, Boolean concluiu) {
+        if (pergunta == null || pergunta.isBlank()) {
+            throw new IllegalStateException("A IA não retornou uma pergunta válida para o chat.");
+        }
+        if (concluiu == null) {
+            throw new IllegalStateException("A IA não informou se a conversa foi concluída.");
+        }
     }
 }
