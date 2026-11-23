@@ -1,6 +1,6 @@
 package diario_emocional.ufrn.instancia_estudantes.controller;
 
-import diario_emocional.ufrn.instancia_estudantes.entity.SugestoesEstudante;
+import diario_emocional.ufrn.framework.entity.Solicitacao;
 import diario_emocional.ufrn.instancia_estudantes.service.SugestoesEstudanteService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -21,22 +21,25 @@ public class SugestoesEstudanteController {
     }
 
     @PostMapping("/{usuarioId}")
-    public ResponseEntity<SugestoesEstudante> gerar(@PathVariable Long usuarioId)
+    public ResponseEntity<Solicitacao> gerar(@PathVariable Long usuarioId)
             throws IOException, InterruptedException {
-        SugestoesEstudante sugestoes = sugestoesEstudanteService.gerarSugestoes(usuarioId, LocalDate.now());
-        return ResponseEntity.status(HttpStatus.CREATED).body(sugestoes);
+        Solicitacao solicitacao =
+                sugestoesEstudanteService.criarSolicitacao(usuarioId, LocalDate.now());
+        return ResponseEntity.status(HttpStatus.CREATED).body(solicitacao);
     }
 
     @GetMapping("/{usuarioId}")
-    public ResponseEntity<List<SugestoesEstudante>> listar(@PathVariable Long usuarioId) {
-        return ResponseEntity.ok(sugestoesEstudanteService.listar(usuarioId));
+    public ResponseEntity<List<Solicitacao>> listar(@PathVariable Long usuarioId) {
+        return ResponseEntity.ok(sugestoesEstudanteService.buscarVariasSolicitacoes(usuarioId));
     }
 
     @GetMapping("/{usuarioId}/{sugestaoId}")
-    public ResponseEntity<SugestoesEstudante> buscar(
+    public ResponseEntity<Solicitacao> buscar(
             @PathVariable Long usuarioId,
             @PathVariable Long sugestaoId
     ) {
-        return ResponseEntity.ok(sugestoesEstudanteService.buscar(usuarioId, sugestaoId));
+        return ResponseEntity.ok(
+                sugestoesEstudanteService.buscarSolicitacaoEspecifica(usuarioId, sugestaoId)
+        );
     }
 }
