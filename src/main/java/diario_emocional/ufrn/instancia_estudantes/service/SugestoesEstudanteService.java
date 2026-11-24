@@ -16,6 +16,7 @@ import diario_emocional.ufrn.framework.service.SugestaoService;
 import diario_emocional.ufrn.instancia_estudantes.entity.AvaliacaoEstudante;
 import diario_emocional.ufrn.instancia_estudantes.prompts.SugestoesEstudantePromptTemplate;
 import diario_emocional.ufrn.instancia_estudantes.repository.AvaliacaoEstudanteRepository;
+import diario_emocional.ufrn.instancia_estudantes.strategy.AnaliseEstudanteStrategy;
 import org.springframework.stereotype.Service;
 import tools.jackson.databind.ObjectMapper;
 
@@ -30,6 +31,8 @@ public class SugestoesEstudanteService extends SugestaoService {
     private final RelatoHigieneSonoRepository relatoHigieneSonoRepository;
     private final AtividadeObrigatoriaRepository atividadeObrigatoriaRepository;
     private final AvaliacaoEstudanteRepository avaliacaoEstudanteRepository;
+    private final AnaliseEstudanteStrategy analiseEstudanteStrategy;
+    private final ObjectMapper objectMapper;
 
     public SugestoesEstudanteService(
             IAService iaService,
@@ -39,40 +42,80 @@ public class SugestoesEstudanteService extends SugestaoService {
             RelatoDiaRepository relatoDiaRepository,
             RelatoHigieneSonoRepository relatoHigieneSonoRepository,
             AtividadeObrigatoriaRepository atividadeObrigatoriaRepository,
-            AvaliacaoEstudanteRepository avaliacaoEstudanteRepository
+            AvaliacaoEstudanteRepository avaliacaoEstudanteRepository,
+            AnaliseEstudanteStrategy analiseEstudanteStrategy
     ) {
-        super(iaService, objectMapper, solicitacaoRepository, usuarioRepository);
+        super(
+                iaService,
+                objectMapper,
+                solicitacaoRepository,
+                usuarioRepository
+        );
+
         this.relatoDiaRepository = relatoDiaRepository;
         this.relatoHigieneSonoRepository = relatoHigieneSonoRepository;
         this.atividadeObrigatoriaRepository = atividadeObrigatoriaRepository;
         this.avaliacaoEstudanteRepository = avaliacaoEstudanteRepository;
+        this.analiseEstudanteStrategy = analiseEstudanteStrategy;
+        this.objectMapper = objectMapper;
     }
 
     @Override
-    protected String criarPromptComContexto(Long usuarioId, LocalDate data) {
+    protected String criarPromptComContexto(
+            Long usuarioId,
+            LocalDate data
+    ) {
         LocalDate dataInicial = data.minusDays(6);
 
-        List<RelatoDia> relatos = relatoDiaRepository
-                .findAllByUsuarioIdAndDataRegistroBetween(usuarioId, dataInicial, data);
+        List<RelatoDia> relatos =
+                relatoDiaRepository
+                        .findAllByUsuarioIdAndDataRegistroBetween(
+                                usuarioId,
+                                dataInicial,
+                                data
+                        );
 
-        List<RelatoHigieneSono> relatosSono = relatoHigieneSonoRepository
-                .findAllByUsuario_IdAndDataRegistroBetween(usuarioId, dataInicial, data);
+        List<RelatoHigieneSono> relatosSono =
+                relatoHigieneSonoRepository
+                        .findAllByUsuario_IdAndDataRegistroBetween(
+                                usuarioId,
+                                dataInicial,
+                                data
+                        );
 
-        List<AtividadeObrigatoria> atividades = atividadeObrigatoriaRepository
-                .findAllByUsuario_IdAndAtivoTrue(usuarioId);
+        List<AtividadeObrigatoria> atividades =
+                atividadeObrigatoriaRepository
+                        .findAllByUsuario_IdAndAtivoTrue(usuarioId);
 
-        List<AvaliacaoEstudante> avaliacoes = avaliacaoEstudanteRepository
-                .findAllByUsuario_IdAndDataRegistroBetween(usuarioId, dataInicial, data);
+        List<AvaliacaoEstudante> avaliacoes =
+                avaliacaoEstudanteRepository
+                        .findAllByUsuario_IdAndDataRegistroBetween(
+                                usuarioId,
+                                dataInicial,
+                                data
+                        );
 
-        validarContexto(relatos, relatosSono, atividades, avaliacoes);
-
-        PromptTemplate template = new SugestoesEstudantePromptTemplate(
+        validarContexto(
                 relatos,
                 relatosSono,
                 atividades,
-                avaliacoes,
-                objectMapper
+                avaliacoes
         );
+
+        // Aplica as regras específicas do contexto acadêmico.
+        String contextoAnalisado = analiseEstudanteStrategy.analisar(
+                atividades,
+                relatos,
+                relatosSono,
+                avaliacoes,
+                data
+        );
+
+        // Monta o prompt usando o resultado da estratégia.
+        PromptTemplate template = new SugestoesEstudantePromptTemplate(
+                contextoAnalisado);
+
+        System.out.println("Contexto analisado: " + contextoAnalisado);
 
         return template.montarPrompt();
     }
@@ -95,23 +138,33 @@ public class SugestoesEstudanteService extends SugestaoService {
         List<String> erros = new ArrayList<>();
 
         if (relatos.isEmpty()) {
-            erros.add("Não existe nenhum relato do dia nos últimos 7 dias.");
+            erros.add(
+                    "Não existe nenhum relato do dia nos últimos 7 dias."
+            );
         }
 
         if (relatosSono.isEmpty()) {
-            erros.add("Não existe nenhum relato de higiene do sono nos últimos 7 dias.");
+            erros.add(
+                    "Não existe nenhum relato de higiene do sono nos últimos 7 dias."
+            );
         }
 
         if (atividades.isEmpty()) {
-            erros.add("Não existe nenhuma atividade obrigatória cadastrada.");
+            erros.add(
+                    "Não existe nenhuma atividade obrigatória cadastrada."
+            );
         }
 
         if (avaliacoes.isEmpty()) {
-            erros.add("Não existe nenhuma avaliação de sentimentos nos últimos 7 dias.");
+            erros.add(
+                    "Não existe nenhuma avaliação de sentimentos nos últimos 7 dias."
+            );
         }
 
         if (!erros.isEmpty()) {
-            throw new ResourceNotFoundException(String.join(" ", erros));
+            throw new ResourceNotFoundException(
+                    String.join(" ", erros)
+            );
         }
     }
 }
